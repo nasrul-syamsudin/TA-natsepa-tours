@@ -59,7 +59,7 @@ $namaSubKriteria = [explode('|', $_POST['opsi_harga'])[1], explode('|', $_POST['
 
   <?php include 'menu.php'; ?>
 
-  <section class="site-hero overlay site-hero-innerpage overlay" data-stellar-background-ratio="0.5" style= "background-image: url(images/bg.jpg);">
+  <section class="site-hero overlay site-hero-innerpage overlay" data-stellar-background-ratio="0.5" style="background-image: url(images/bg.jpg);">
     <div class="container">
       <div class="row align-items-center site-hero-inner justify-content-center">
         <div class="col-md-12 text-center">
@@ -149,6 +149,10 @@ $namaSubKriteria = [explode('|', $_POST['opsi_harga'])[1], explode('|', $_POST['
                 WHERE tpw.id_paketwisata_grup='$_POST[wisata_grup]'");
 
             $max = mysqli_fetch_assoc($carimax);
+            // Convert max values to numeric to avoid PHP 7.4 warnings
+            $max['max1'] = floatval($max['max1']);
+            $max['max2'] = floatval($max['max2']);
+            $max['max3'] = floatval($max['max3']);
 
             # Cari nilai minimal
             $carimin = mysqli_query($koneksi, "SELECT min(ta.harga) as min1,
@@ -158,6 +162,10 @@ $namaSubKriteria = [explode('|', $_POST['opsi_harga'])[1], explode('|', $_POST['
                 JOIN tb_paketwisata as tpw on ta.id_paketwisata=tpw.id_paketwisata
                 WHERE tpw.id_paketwisata_grup='$_POST[wisata_grup]'");
             $min = mysqli_fetch_assoc($carimin);
+            // Convert min values to numeric to avoid PHP 7.4 warnings
+            $min['min1'] = floatval($min['min1']);
+            $min['min2'] = floatval($min['min2']);
+            $min['min3'] = floatval($min['min3']);
 
             ?>
             <br>
@@ -248,12 +256,18 @@ $namaSubKriteria = [explode('|', $_POST['opsi_harga'])[1], explode('|', $_POST['
                     <?php $nomor = 1; ?>
                     <?php $ambil = mysqli_query($koneksi, "SELECT * FROM tb_paketwisata JOIN tb_alternatif ON tb_paketwisata.id_paketwisata=tb_alternatif.id_paketwisata WHERE id_paketwisata_grup='$_POST[wisata_grup]'"); ?>
                     <?php while ($pecah = mysqli_fetch_array($ambil)) { ?>
+                      <?php
+                      // Convert to numeric values to avoid PHP 7.4 warnings
+                      $harga = floatval($pecah['harga']);
+                      $jumlah_wisata = floatval($pecah['jumlah_wisata']);
+                      $lama_tour = floatval($pecah['lama_tour']);
+                      ?>
                       <tr>
                         <td><?php echo $nomor; ?></td>
                         <td><?php echo $pecah['nama_paketwisata']; ?></td>
-                        <td><?php echo round($min['min1'] / $pecah['harga'], 2); ?></td>
-                        <td><?php echo round($pecah['jumlah_wisata'] / $max['max2'], 2); ?></td>
-                      <td><?php echo round($pecah['lama_tour'] / $max['max3'], 2); ?></td>
+                        <td><?php echo ($harga > 0) ? round($min['min1'] / $harga, 2) : 0; ?></td>
+                        <td><?php echo ($max['max2'] > 0) ? round($jumlah_wisata / $max['max2'], 2) : 0; ?></td>
+                        <td><?php echo ($max['max3'] > 0) ? round($lama_tour / $max['max3'], 2) : 0; ?></td>
                       </tr>
                       <?php $nomor++; ?>
                     <?php } ?>
@@ -283,15 +297,26 @@ $namaSubKriteria = [explode('|', $_POST['opsi_harga'])[1], explode('|', $_POST['
             $query = $koneksi->query("SELECT * FROM tb_paketwisata JOIN tb_alternatif ON tb_paketwisata.id_paketwisata=tb_alternatif.id_paketwisata WHERE id_paketwisata_grup='$_POST[wisata_grup]'");
             $result = array();
             while ($row = $query->fetch_assoc()) {
+              // Convert to numeric values to avoid PHP 7.4 warnings
+              $harga = floatval($row['harga']);
+              $jumlah_wisata = floatval($row['jumlah_wisata']);
+              $lama_tour = floatval($row['lama_tour']);
+              $min1 = floatval($min['min1']);
+              $max2 = floatval($max['max2']);
+              $max3 = floatval($max['max3']);
+
+              // Calculate normalized values with validation
+              $nilai_harga = ($harga > 0) ? ($min1 / $harga) * $bobot_harga : 0;
+              $nilai_jumlah = ($max2 > 0) ? ($jumlah_wisata / $max2) * $bobot_jumlahwisata : 0;
+              $nilai_lama = ($max3 > 0) ? ($lama_tour / $max3) * $bobot_lamatour : 0;
+
               $result[] = [
                 'id' => $row['id_paketwisata'],
-                'harga' => $row['harga'],
-                'jumlah_wisata' => $row['jumlah_wisata'],
-                'lama_tour' => $row['lama_tour'],
+                'harga' => $harga,
+                'jumlah_wisata' => $jumlah_wisata,
+                'lama_tour' => $lama_tour,
                 'nama_paket' => $row['nama_paketwisata'],
-                'nilai' => round((($min['min1'] / $row['harga']) * $bobot_harga) +
-                  (($row['jumlah_wisata'] / $max['max2']) * $bobot_jumlahwisata) +
-                  (($row['lama_tour'] / $max['max3']) * $bobot_lamatour), 2)
+                'nilai' => round($nilai_harga + $nilai_jumlah + $nilai_lama, 2)
               ];
             }
 
@@ -307,8 +332,8 @@ $namaSubKriteria = [explode('|', $_POST['opsi_harga'])[1], explode('|', $_POST['
 
             foreach ($result as $item) {
               if ($item['harga'] == $sort['harga'] || $item['jumlah_wisata'] == $sort['jumlah_wisata'] || $item['lama_tour'] == $sort['lama_tour']) {
-                
-                    $filter_result[] = $item;
+
+                $filter_result[] = $item;
               }
             }
             ?>
@@ -352,7 +377,7 @@ $namaSubKriteria = [explode('|', $_POST['opsi_harga'])[1], explode('|', $_POST['
               </div>
             </div><br>
 
-            
+
 
             <div class="panel panel-default ml-5 mb-3 mr-5">
               <div class="panel-heading">

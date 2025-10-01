@@ -5,12 +5,6 @@
   //koneksi ke database
   include 'koneksi.php';
 
-  if (empty($_SESSION["keranjang"]) OR !isset($_SESSION["keranjang"]))
-  {
-  echo "<script>alert('pemesanan kosong, silahkan pilih paket terlebih dahulu');</script>";
-  echo "<script>location='index.php';</script>";
-  }
-
 ?>
 
 <!doctype html>
